@@ -1,0 +1,7 @@
+Baseline
+========================================
+Metric                    | Value     
+----------------------------------------
+Final Training Loss       | 4.3157
+BLEU-4 Accuracy           | 0.0000
+Epochs Completed          | 10

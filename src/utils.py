@@ -42,13 +42,13 @@ def save_checkpoint_to_drive(model, optimizer, epoch, loss, filename="autoencode
     print(f"Checkpoint saved at {full_path} (epoch {epoch})")
 
 
-def load_checkpoint_from_drive(model, optimizer=None, filename="autoencoder_checkpoint.pth"):
+def load_checkpoint(model, optimizer=None, filename="text_autoencoder.pth"):
     full_path = os.path.join("./checkpoints", filename)
 
     if not os.path.exists(full_path):
         raise FileNotFoundError(f"Checkpoint file not found: {full_path}")
 
-    checkpoint = torch.load(full_path, map_location=torch.device("cpu"))
+    checkpoint = torch.load(full_path, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     model.load_state_dict(checkpoint["model_state_dict"])
 
     if optimizer:

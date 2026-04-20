@@ -7,10 +7,10 @@ dataset:
   K_frames: 4 
 
 training:
-  batch_size: 8
+  batch_size: 4 
   lr: 0.001
-  epochs: 5
-  num_workers: 2
+  epochs: 10
+  num_workers: 0
 
 model:
   latent_dim: 16
@@ -25,12 +25,12 @@ loss:
 
 flags:
 # Baseline Architecture
-  use_frame_aware_grounding: false
-  use_contrastive_roi: false
-  use_entity_pooling: false 
-  use_cot_text: false
+  use_frame_aware_grounding: True  # Activates frame-by-frame logic
+  use_contrastive_roi: True        # Helps map keywords to pixels 
+  use_entity_pooling: false        # For Experiment 2
+  use_cot_text: True               # Uses the GDI tags for reasoning 
 
 # Future Experiments
-  use_cross_attention: false
-  use_bidirectional: false 
+  use_cross_attention: True        # matches to new changes in model.py
+  use_bidirectional: false         # For Experiement 2
 

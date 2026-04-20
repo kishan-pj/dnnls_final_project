@@ -211,6 +211,10 @@ Defines an `Attention` module.
 It computes attention weights over a sequence of RNN outputs to create a context vector, helping the model focus on relevant parts of the input sequence.
 """
 
+# Baseline approach comment out,simple linear was used to squash dimensions
+# Replacing simple feature pooling with a weighted spatial search 
+
+"""
 class Attention(nn.Module):
     def __init__(self, hidden_dim):
         super(Attention, self).__init__()
@@ -234,7 +238,39 @@ class Attention(nn.Module):
 
         # Squeeze to get final context vector
         return context.squeeze(1) # Shape: [batch, hidden_dim]
+"""
+# Experiment 1
 
+class CrossModalAttention(nn.Module):
+    def __init__(self,hidden_dim):
+        super(CrossModalAttention,self).__init__()
+
+    # layers to align text and visual feature into a common space
+        self.query = nn.Linear(hidden_dim,hidden_dim)
+        self.key = nn.Linear(hidden_dim,hidden_dim)
+        self.value =nn.Linear(hidden_dim,hidden_dim)
+        self.softmax = nn.Softmax(dim= -1)
+    
+    def forward(self,text_query,visual_keys):
+        """
+        text_query -[batch, hidden_dim]
+        visual_keys: [batch, seq_len, hidden_dim]
+        """
+        # linear projections
+        Q = self.query(text_query).unsqueeze(1)  # [B,1,H] text_query
+        K = self.key(visual_keys)                # [B,S,H] visual_features  
+        V = self.value(visual_keys)              # [B,S,H]
+
+        # scores shape : [B,1,S]
+        scores = torch.bmm(Q, K.transpose(1,2)) / (Q.size(-1) **0.5)
+
+        # Normalize score to get attenion weights (Heatmap)
+        attn_weights = self.softmax(scores)
+
+        # Compute the grounded context vector (The result of the "search")
+        context = torch.bmm(attn_weights, V).squeeze(1)
+
+        return context, attn_weights
 
 # MAIN MODEL (SEQUENCE PREDICTOR)
 
@@ -247,32 +283,49 @@ This is the core architecture `SequencePredictor`.
 4. **Decoders**: Predicts the *next* (5th) frame's image and text using `image_decoder` and `text_decoder`.
 """
 
+# Experiment 1 - Modified Squence Predictor
+
 class SequencePredictor(nn.Module):
     def __init__(self, visual_autoencoder, text_autoencoder, latent_dim,
                  gru_hidden_dim):
         super(SequencePredictor, self).__init__()
 
-        # --- 1. Static Encoders ---
-        # (These process one pair at a time)
+        
+        # Static Encoders 
         self.image_encoder = visual_autoencoder.encoder
         self.text_encoder = text_autoencoder.encoder
 
-        # --- 2. Temporal Encoder ---
+
+        # Baseline comment out -Simple Gru , lacks features aligment 
+        """
+        # Temporal Encoder
         # (This processes the sequence of pairs)
+
         fusion_dim = latent_dim * 2 # z_visual + z_text
         self.temporal_rnn = nn.GRU(fusion_dim, latent_dim, batch_first=True)
+        """
+        # Experiment 1: Using the same GRU but with "Grounded " inputs
+        self.temporal_rnn = nn.GRU(latent_dim * 2, latent_dim, batch_first=True)
 
-        # --- 3. Attention ---
+        #Baseline comment - Simple attention removed it treated all pixels with equal weights  regardless of text
+        """"
+        # Attention
         self.attention = Attention(gru_hidden_dim)
+        """
 
-        # --- 4. Final Projection ---
+        # Experiment 1- Cross-modal Attention Module
+        # Forces text queries to "search" for releavent pixels, improving spatial grounding 
+        self.cross_modal_attn = CrossModalAttention(latent_dim)
+
+
+        # Final Projection 
         # cat(h, context) -> gru_hidden_dim * 2
         self.projection = nn.Sequential(
             nn.Linear(gru_hidden_dim * 2, latent_dim),
             nn.ReLU()
         )
 
-        # --- 5. Decoders ---
+        # Decoders 
         # (These predict the *next* item)
         self.image_decoder = visual_autoencoder.decoder
         self.text_decoder = text_autoencoder.decoder
@@ -287,7 +340,7 @@ class SequencePredictor(nn.Module):
 
         batch_size, seq_len, C, H, W = image_seq.shape
 
-        # --- 1 & 2: Run Static Encoders over the sequence ---
+        # Run Static Encoders over the sequence 
         # We can't pass a 5D/4D tensor to the encoders.
         # We "flatten" the batch and sequence dimensions.
 
@@ -304,25 +357,49 @@ class SequencePredictor(nn.Module):
         z_v_seq = z_v_flat.view(batch_size, seq_len, -1)                 # [b, s, latent]
         z_t_seq = hidden.squeeze(0).view(batch_size, seq_len, -1)        # [b, s, latent]
 
+        # Experiement-1 -MOdified Fusion Loop
+        # Simple concatenation, the model doesn't know which word matches which object
+        """
         # Combine
         z_fusion_flat = torch.cat((z_v_flat, hidden.squeeze(0)), dim=1) # Shape: [b*s, fusion_dim]
 
         # "Un-flatten" back into a sequence
         z_fusion_seq = z_fusion_flat.view(batch_size, seq_len, -1) # Shape: [b, s, fusion_dim]
+        """
+        
+        # Experiment1- Per-frame cross-modal attention
+        # Mathematically map GDI keywords to specific image regions before temporal processing
+        fused_steps = []
+        for i in range(seq_len):
+            # text queries the image features fro relevant regions
+            vis_context,_ = self.cross_modal_attn(z_t_seq[:,i,:],z_v_seq)
+            # concatenate the attended visual context with the text embedding
+            fused_step = torch.cat((vis_context,z_t_seq[:,i,:]),dim=1)
+            fused_steps.append(fused_step)
 
-        # --- 3. Run Temporal Encoder ---
+        # stack back into a sequence for the RNN
+        z_fusion_seq = torch.stack(fused_steps,dim=1)  #[batch,seq, latent*2]
+
+        # Run Temporal Encoder
         # zseq shape: [b, s, gru_hidden]
         # h    shape: [1, b, gru_hidden]
         zseq, h = self.temporal_rnn(z_fusion_seq)
         h = h.squeeze(0) # Shape: [b, gru_hidden]
 
-        # --- 4. Attention ---
+        # Removed Simple sequence attention becasue it didn't used query logic
+        """
+        # Attention 
         context = self.attention(zseq) # Shape: [b, gru_hidden]
+        """
 
-        # --- 5. Final Prediction Vector (z) ---
+        # Experiment1- Cross-Modal summary pooling
+        # Focusing only on releveant past fram-text pairs
+        context,_ = self.cross_modal_attn(h,zseq)
+
+        # Final Prediction Vector (z)
         z = self.projection(torch.cat((h, context), dim=1)) # Shape: [b, joint_latent_dim]
 
-        # --- 6. Decode (Predict pk) ---
+        # Decode (Predict pk) 
         pred_image_content, pred_image_context = self.image_decoder(z)
 
         h0 = self.fused_to_h0(z).unsqueeze(0)
@@ -330,9 +407,9 @@ class SequencePredictor(nn.Module):
 
         decoder_input = target_seq[:, :,:-1].squeeze(1)
 
-        # 3. Run the decoder *once* on the entire sequence.
+        # Run the decoder *once* on the entire sequence.
         # It takes the encoder's final state (hidden, cell)
         # and the full "teacher" sequence (decoder_input).
-        predicted_text_logits_k, _hidden, _cell = self.text_decoder(decoder_input, h0, c0)
+        predicted_text_logits_k,_,_, = self.text_decoder(decoder_input, h0, c0)
 
         return pred_image_content, pred_image_context, predicted_text_logits_k, h0, c0, z_v_seq, z_t_seq

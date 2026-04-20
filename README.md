@@ -20,12 +20,9 @@ The baseline architecture includes:
 Expriment 1
 - Ground Module (Cross-Modal Attention)
 
-========================================
-Metric                    | Value     
-----------------------------------------
-Final Training Loss       | 4.3605
-BLEU-4 Accuracy           | 0.0378
-Epochs Completed          | 10
+Final Training Loss - 4.3605
+BLEU-4 Accuracy -  0.0378
+Epochs Completed- 10
 
 
 Experiemnt2 

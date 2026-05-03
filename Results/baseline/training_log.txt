@@ -1,10 +1,10 @@
-Epoch 1 Loss:  4.429876
-Epoch 2 Loss:  4.358434
-Epoch 3 Loss:  4.336230
-Epoch 4 Loss:  4.330526
-Epoch 5 Loss:  4.326200
-Epoch 6 Loss:  4.324603
-Epoch 7 Loss:  4.320497
-Epoch 8 Loss:  4.319265
-Epoch 9 Loss:  4.315021
-Epoch 10 Loss:  4.315667
+Epoch [1/10] Loss: 4.4422  (im=0.253, ctx=0.011, txt=3.927, reid=0.000, g_mse=0.409, nce=0.000, entpool=0.000)
+Epoch [2/10] Loss: 4.3937  (im=0.241, ctx=0.015, txt=3.611, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)
+Epoch [3/10] Loss: 4.3768  (im=0.247, ctx=0.009, txt=4.218, reid=0.000, g_mse=0.087, nce=0.000, entpool=0.000)
+Epoch [4/10] Loss: 4.3696  (im=0.242, ctx=0.016, txt=3.771, reid=0.000, g_mse=0.032, nce=0.000, entpool=0.000)
+Epoch [5/10] Loss: 4.3677  (im=0.220, ctx=0.010, txt=4.181, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)
+Epoch [6/10] Loss: 4.3647  (im=0.242, ctx=0.008, txt=4.096, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)
+Epoch [7/10] Loss: 4.3645  (im=0.245, ctx=0.012, txt=4.055, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)
+Epoch [8/10] Loss: 4.3647  (im=0.254, ctx=0.009, txt=4.399, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)
+Epoch [9/10] Loss: 4.3633  (im=0.240, ctx=0.017, txt=4.596, reid=0.000, g_mse=0.002, nce=0.693, entpool=0.000)
+Epoch [10/10] Loss: 4.3596  (im=0.245, ctx=0.008, txt=3.359, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)

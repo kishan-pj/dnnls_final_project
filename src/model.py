@@ -1,7 +1,203 @@
 # Imports
+import math
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torchvision.transforms as transforms
+import torchvision.transforms.functional as FT
+from torch.utils.data import Dataset
+
+from .utils import (
+    crop_and_resize,
+    extract_cot_text_for_frame,
+    parse_cot_grounding,
+    parse_gdi_text,
+    pick_reid_pair,
+)
+
+
+# @title Main dataset
+"""
+Defines the `SequencePredictionDataset` class, which is the core data provider for the main task.
+1. `__getitem__`:
+   - Loads 5 frames (4 context + 1 target).
+   - Parses text descriptions and optionally appends CoT text.
+   - Extracts bounding box crops (ROIs) for grounding tasks if CoT data is available.
+   - Returns a tuple containing: sequence images, descriptions, target image, target text, ROI crops, and validity flags.
+"""
+
+
+class SequencePredictionDataset(Dataset):
+    def __init__(
+        self,
+        original_dataset,
+        tokenizer,
+        K=4,
+        max_len=120,
+        image_hw=(60, 125),
+        use_cot_text=True,
+    ):
+        super(SequencePredictionDataset, self).__init__()
+        self.dataset = original_dataset
+        self.tokenizer = tokenizer
+        self.K = K
+        self.max_len = max_len
+        self.image_hw = image_hw
+        self.use_cot_text = use_cot_text
+
+        # Potential experiments: Try other transforms!
+        self.transform = transforms.Compose([
+            transforms.Resize(image_hw),  # Reasonable size based on our previous analysis
+            transforms.ToTensor(),        # HxWxC -> CxHxW
+        ])
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        """
+        Selects a 5 frame sequence from the dataset. Sets 4 for training and the last one
+        as a target.
+
+        Returns:
+          frames:        [K, C, H, W]
+          descriptions:  [K, T]
+          image_target:  [C, H, W]
+          target_ids:    [1, T]
+          roi1, roi2:    [C, H, W] (cropped from CoT bboxes, if available)
+          roi_valid:     0/1
+          roi_frame:     frame index for roi1 (0..K-1) if available else -1
+          ent_id:        string id for the ROI entity (empty if none)
+        """
+        frames = self.dataset[idx]["images"]
+        image_attributes = parse_gdi_text(self.dataset[idx]["story"])
+
+        # CoT grounding annotations (may be missing / unparseable)
+        cot = self.dataset[idx].get("chain_of_thought", "")
+        cot_frames = parse_cot_grounding(cot)
+
+        frame_tensors = []
+        description_list = []
+
+        for frame_idx in range(self.K):
+            image = FT.equalize(frames[frame_idx])
+            input_frame = self.transform(image)
+            frame_tensors.append(input_frame)
+
+            description = image_attributes[frame_idx]["description"]
+
+            # Option 4: include CoT text snippet for this frame (best-effort)
+            if self.use_cot_text:
+                cot_txt = extract_cot_text_for_frame(cot, frame_idx)
+                if cot_txt:
+                    description = description + " [COT] " + cot_txt
+
+            input_ids = self.tokenizer(
+                description,
+                return_tensors="pt",
+                padding="max_length",
+                truncation=True,
+                max_length=self.max_len,
+            ).input_ids.squeeze(0)
+
+            description_list.append(input_ids)
+
+        image_target = FT.equalize(frames[self.K])
+        image_target = self.transform(image_target)
+
+        target_desc = image_attributes[self.K]["description"]
+        target_ids = self.tokenizer(
+            target_desc,
+            return_tensors="pt",
+            padding="max_length",
+            truncation=True,
+            max_length=self.max_len,
+        ).input_ids  # [1, T]
+
+        # ---- CoT ROI pair (Options 1-3 need these) ----
+        roi_valid = torch.tensor(0, dtype=torch.long)
+        roi1 = torch.zeros((3, self.image_hw[0], self.image_hw[1]))
+        roi2 = torch.zeros((3, self.image_hw[0], self.image_hw[1]))
+        roi_frame = torch.tensor(-1, dtype=torch.long)
+        ent_id = ""
+
+        pair = pick_reid_pair(cot_frames)
+        if pair is not None:
+            f1, f2, b1, b2, ent_id = pair
+            # We only use ROIs that fall within the input window (0..K-1)
+            if (0 <= f1 < self.K) and (0 <= f2 < self.K):
+                try:
+                    roi1 = crop_and_resize(frames[f1], b1, out_hw=self.image_hw)
+                    roi2 = crop_and_resize(frames[f2], b2, out_hw=self.image_hw)
+                    roi_valid = torch.tensor(1, dtype=torch.long)
+                    roi_frame = torch.tensor(int(f1), dtype=torch.long)
+                except Exception:
+                    pass
+
+        sequence_tensor = torch.stack(frame_tensors)          # [K, C, H, W]
+        description_tensor = torch.stack(description_list)    # [K, T]
+
+        return (
+            sequence_tensor,
+            description_tensor,
+            image_target,
+            target_ids,
+            roi1,
+            roi2,
+            roi_valid,
+            roi_frame,
+            ent_id,
+        )
+
+# @title Text task dataset (text autoencoding)
+"""
+Defines `TextTaskDataset` for pre-training or fine-tuning the text encoder separately.
+It simply pulls a random text description from a story to perform text-to-text autoencoding.
+"""
+
+class TextTaskDataset(Dataset):
+    def __init__(self, dataset):
+        self.dataset = dataset
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        num_frames = self.dataset[idx]["frame_count"]
+        self.image_attributes = parse_gdi_text(self.dataset[idx]["story"])
+
+        # Pick
+        frame_idx = np.random.randint(0, 5)
+        description = self.image_attributes[frame_idx]["description"]
+
+        return description  # Returning the whole description
+
+# @title Dataset for image autoencoder task
+"""
+Defines `AutoEncoderTaskDataset` for pre-training the visual autoencoder.
+It retrieves a single random frame from the dataset to learn image reconstruction (Image -> Latent -> Image).
+"""
+
+class AutoEncoderTaskDataset(Dataset):
+    def __init__(self, dataset):
+        self.dataset = dataset
+        self.transform = transforms.Compose([
+            transforms.Resize((240, 500)),  # Reasonable size based on our previous analysis
+            transforms.ToTensor(),  # HxWxC -> CxHxW
+        ])
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        num_frames = self.dataset[idx]["frame_count"]
+        frames = self.dataset[idx]["images"]
+
+        # Pick a frame at random
+        frame_idx = torch.randint(0, 5, (1,)).item()
+        input_frame = self.transform(frames[frame_idx])  # Input to the autoencoder
+
+        return input_frame,  # Returning the image
 
 
 # @title The text autoencoder (Seq2Seq)
@@ -205,31 +401,29 @@ class VisualAutoencoder( nn.Module):
 
 # ATTENTION MODULE
 
+
 # @title A simple attention architecture
 """
 Defines an `Attention` module.
 It computes attention weights over a sequence of RNN outputs to create a context vector, helping the model focus on relevant parts of the input sequence.
 """
 
-# Baseline approach comment out,simple linear was used to squash dimensions
-# Replacing simple feature pooling with a weighted spatial search 
 
-"""
 class Attention(nn.Module):
     def __init__(self, hidden_dim):
         super(Attention, self).__init__()
         # This "attention" layer learns a query vector
         self.attn = nn.Linear(hidden_dim, 1)
-        self.softmax = nn.Softmax(dim=1) # Over the sequence length
+        self.softmax = nn.Softmax(dim=1)  # Over the sequence length
 
     def forward(self, rnn_outputs):
         # rnn_outputs shape: [batch, seq_len, hidden_dim]
 
         # Pass through linear layer to get "energy" scores
-        energy = self.attn(rnn_outputs).squeeze(2) # Shape: [batch, seq_len]
+        energy = self.attn(rnn_outputs).squeeze(2)  # Shape: [batch, seq_len]
 
         # Get attention weights
-        attn_weights = self.softmax(energy) # Shape: [batch, seq_len]
+        attn_weights = self.softmax(energy)  # Shape: [batch, seq_len]
 
         # Apply weights
         # attn_weights.unsqueeze(1) -> [batch, 1, seq_len]
@@ -237,42 +431,8 @@ class Attention(nn.Module):
         context = torch.bmm(attn_weights.unsqueeze(1), rnn_outputs)
 
         # Squeeze to get final context vector
-        return context.squeeze(1) # Shape: [batch, hidden_dim]
-"""
-# Experiment 1
+        return context.squeeze(1)  # Shape: [batch, hidden_dim]
 
-class CrossModalAttention(nn.Module):
-    def __init__(self,hidden_dim):
-        super(CrossModalAttention,self).__init__()
-
-    # layers to align text and visual feature into a common space
-        self.query = nn.Linear(hidden_dim,hidden_dim)
-        self.key = nn.Linear(hidden_dim,hidden_dim)
-        self.value =nn.Linear(hidden_dim,hidden_dim)
-        self.softmax = nn.Softmax(dim= -1)
-    
-    def forward(self,text_query,visual_keys):
-        """
-        text_query -[batch, hidden_dim]
-        visual_keys: [batch, seq_len, hidden_dim]
-        """
-        # linear projections
-        Q = self.query(text_query).unsqueeze(1)  # [B,1,H] text_query
-        K = self.key(visual_keys)                # [B,S,H] visual_features  
-        V = self.value(visual_keys)              # [B,S,H]
-
-        # scores shape : [B,1,S]
-        scores = torch.bmm(Q, K.transpose(1,2)) / (Q.size(-1) **0.5)
-
-        # Normalize score to get attenion weights (Heatmap)
-        attn_weights = self.softmax(scores)
-
-        # Compute the grounded context vector (The result of the "search")
-        context = torch.bmm(attn_weights, V).squeeze(1)
-
-        return context, attn_weights
-
-# MAIN MODEL (SEQUENCE PREDICTOR)
 
 # @title The main sequence predictor model
 """
@@ -283,49 +443,32 @@ This is the core architecture `SequencePredictor`.
 4. **Decoders**: Predicts the *next* (5th) frame's image and text using `image_decoder` and `text_decoder`.
 """
 
-# Experiment 1 - Modified Squence Predictor
+# BASELINE ARCHITECTURE.
 
 class SequencePredictor(nn.Module):
-    def __init__(self, visual_autoencoder, text_autoencoder, latent_dim,
-                 gru_hidden_dim):
+    def __init__(self, visual_autoencoder, text_autoencoder, latent_dim, gru_hidden_dim):
         super(SequencePredictor, self).__init__()
 
-        
-        # Static Encoders 
+        # --- 1. Static Encoders ---
+        # (These process one pair at a time)
         self.image_encoder = visual_autoencoder.encoder
         self.text_encoder = text_autoencoder.encoder
 
-
-        # Baseline comment out -Simple Gru , lacks features aligment 
-        """
-        # Temporal Encoder
-        # (This processes the sequence of pairs)
-
-        fusion_dim = latent_dim * 2 # z_visual + z_text
+        # --- 2. Temporal Encoder ---
+        fusion_dim = latent_dim * 2  # z_visual + z_text
         self.temporal_rnn = nn.GRU(fusion_dim, latent_dim, batch_first=True)
-        """
-        # Experiment 1: Using the same GRU but with "Grounded " inputs
-        self.temporal_rnn = nn.GRU(latent_dim * 2, latent_dim, batch_first=True)
 
-        #Baseline comment - Simple attention removed it treated all pixels with equal weights  regardless of text
-        """"
-        # Attention
+        # --- 3. Attention ---
         self.attention = Attention(gru_hidden_dim)
-        """
 
-        # Experiment 1- Cross-modal Attention Module
-        # Forces text queries to "search" for releavent pixels, improving spatial grounding 
-        self.cross_modal_attn = CrossModalAttention(latent_dim)
-
-
-        # Final Projection 
+        # --- 4. Final Projection ---
         # cat(h, context) -> gru_hidden_dim * 2
         self.projection = nn.Sequential(
             nn.Linear(gru_hidden_dim * 2, latent_dim),
-            nn.ReLU()
+            nn.ReLU(),
         )
 
-        # Decoders 
+        # --- 5. Decoders ---
         # (These predict the *next* item)
         self.image_decoder = visual_autoencoder.decoder
         self.text_decoder = text_autoencoder.decoder
@@ -340,76 +483,211 @@ class SequencePredictor(nn.Module):
 
         batch_size, seq_len, C, H, W = image_seq.shape
 
-        # Run Static Encoders over the sequence 
+        # --- 1 & 2: Run Static Encoders over the sequence ---
         # We can't pass a 5D/4D tensor to the encoders.
         # We "flatten" the batch and sequence dimensions.
 
         # Reshape for image_encoder
         img_flat = image_seq.view(batch_size * seq_len, C, H, W)
         # Reshape for text_encoder
-        txt_flat = text_seq.view(batch_size * seq_len, -1) # -1 infers text_len
+        txt_flat = text_seq.view(batch_size * seq_len, -1)  # -1 infers text_len
 
         # Run encoders
-        z_v_flat = self.image_encoder(img_flat) # Shape: [b*s, latent]
-        _, hidden, cell = self.text_encoder(txt_flat) # Shape: [b*s, latent]
+        z_v_flat = self.image_encoder(img_flat)  # Shape: [b*s, latent]
+        _, hidden, cell = self.text_encoder(txt_flat)  # Shape: [b*s, latent]
 
         # Keep per-frame latents for optional grounding losses
         z_v_seq = z_v_flat.view(batch_size, seq_len, -1)                 # [b, s, latent]
         z_t_seq = hidden.squeeze(0).view(batch_size, seq_len, -1)        # [b, s, latent]
 
-        # Experiement-1 -MOdified Fusion Loop
-        # Simple concatenation, the model doesn't know which word matches which object
-        """
         # Combine
-        z_fusion_flat = torch.cat((z_v_flat, hidden.squeeze(0)), dim=1) # Shape: [b*s, fusion_dim]
+        z_fusion_flat = torch.cat((z_v_flat, hidden.squeeze(0)), dim=1)  # Shape: [b*s, fusion_dim]
 
         # "Un-flatten" back into a sequence
-        z_fusion_seq = z_fusion_flat.view(batch_size, seq_len, -1) # Shape: [b, s, fusion_dim]
-        """
-        
-        # Experiment1- Per-frame cross-modal attention
-        # Mathematically map GDI keywords to specific image regions before temporal processing
-        fused_steps = []
-        for i in range(seq_len):
-            # text queries the image features fro relevant regions
-            vis_context,_ = self.cross_modal_attn(z_t_seq[:,i,:],z_v_seq)
-            # concatenate the attended visual context with the text embedding
-            fused_step = torch.cat((vis_context,z_t_seq[:,i,:]),dim=1)
-            fused_steps.append(fused_step)
+        z_fusion_seq = z_fusion_flat.view(batch_size, seq_len, -1)  # Shape: [b, s, fusion_dim]
 
-        # stack back into a sequence for the RNN
-        z_fusion_seq = torch.stack(fused_steps,dim=1)  #[batch,seq, latent*2]
-
-        # Run Temporal Encoder
+        # --- 3. Run Temporal Encoder ---
         # zseq shape: [b, s, gru_hidden]
         # h    shape: [1, b, gru_hidden]
         zseq, h = self.temporal_rnn(z_fusion_seq)
-        h = h.squeeze(0) # Shape: [b, gru_hidden]
+        h = h.squeeze(0)  # Shape: [b, gru_hidden]
 
-        # Removed Simple sequence attention becasue it didn't used query logic
-        """
-        # Attention 
-        context = self.attention(zseq) # Shape: [b, gru_hidden]
-        """
+        # --- 4. Attention ---
+        context = self.attention(zseq)  # Shape: [b, gru_hidden]
 
-        # Experiment1- Cross-Modal summary pooling
-        # Focusing only on releveant past fram-text pairs
-        context,_ = self.cross_modal_attn(h,zseq)
+        # --- 5. Final Prediction Vector (z) ---
+        z = self.projection(torch.cat((h, context), dim=1))  # Shape: [b, joint_latent_dim]
 
-        # Final Prediction Vector (z)
-        z = self.projection(torch.cat((h, context), dim=1)) # Shape: [b, joint_latent_dim]
-
-        # Decode (Predict pk) 
+        # --- 6. Decode (Predict pk) ---
         pred_image_content, pred_image_context = self.image_decoder(z)
 
         h0 = self.fused_to_h0(z).unsqueeze(0)
         c0 = self.fused_to_c0(z).unsqueeze(0)
 
-        decoder_input = target_seq[:, :,:-1].squeeze(1)
+        decoder_input = target_seq[:, :, :-1].squeeze(1)
 
-        # Run the decoder *once* on the entire sequence.
+        # 3. Run the decoder *once* on the entire sequence.
         # It takes the encoder's final state (hidden, cell)
         # and the full "teacher" sequence (decoder_input).
-        predicted_text_logits_k,_,_, = self.text_decoder(decoder_input, h0, c0)
+        predicted_text_logits_k, _hidden, _cell = self.text_decoder(decoder_input, h0, c0)
+
+        return pred_image_content, pred_image_context, predicted_text_logits_k, h0, c0, z_v_seq, z_t_seq
+
+
+# Experiment architecture variants
+# EXPERIMENT 1 GROUNDING MODULE - Cross-Modal Attention.
+class CrossModalAttention(nn.Module):
+    """
+    Experiment 1 grounding module.
+
+    Text token embeddings act as queries, and visual spatial feature-map
+    locations act as keys/values. The output is a text representation grounded
+    in the image regions.
+    """
+    def __init__(self, text_dim=16, visual_channels=64, latent_dim=16):
+        super().__init__()
+        self.query_proj = nn.Linear(text_dim, latent_dim)
+        self.key_proj = nn.Linear(visual_channels, latent_dim)
+        self.value_proj = nn.Linear(visual_channels, latent_dim)
+        self.output_proj = nn.Linear(latent_dim, latent_dim)
+        self.scale = math.sqrt(latent_dim)
+
+    def forward(self, token_embeddings, visual_feature_map, token_ids=None):
+        """Compute token-to-region attention and return grounded text features."""
+        visual_tokens = visual_feature_map.flatten(2).transpose(1, 2)
+
+        queries = self.query_proj(token_embeddings)
+        keys = self.key_proj(visual_tokens)
+        values = self.value_proj(visual_tokens)
+
+        attention_scores = torch.bmm(queries, keys.transpose(1, 2)) / self.scale
+        attention_weights = torch.softmax(attention_scores, dim=-1)
+        attended_visual_tokens = torch.bmm(attention_weights, values)
+
+        if token_ids is not None:
+            token_mask = (token_ids != 0).float().unsqueeze(-1)
+            grounded_text = (attended_visual_tokens * token_mask).sum(dim=1)
+            grounded_text = grounded_text / token_mask.sum(dim=1).clamp_min(1.0)
+        else:
+            grounded_text = attended_visual_tokens.mean(dim=1)
+
+        grounded_text = self.output_proj(grounded_text)
+        return grounded_text, attention_weights
+
+
+# EXPERIMENT 1 ARCHITECTURE.
+# Cross-Modal Attention grounding + unidirectional GRU.
+class Experiment1SequencePredictor(nn.Module):
+    """
+    Experiment 1 model: Cross-Modal Attention + baseline unidirectional GRU.
+    """
+    def __init__(self, visual_autoencoder, text_autoencoder, latent_dim, gru_hidden_dim):
+        super().__init__()
+
+        # --- 1. Static Encoders ---
+        # (These process one pair at a time)
+        self.image_encoder = visual_autoencoder.encoder
+        self.text_encoder = text_autoencoder.encoder
+
+        self.cross_modal_attention = CrossModalAttention(
+            text_dim=text_autoencoder.encoder.embedding_dim,
+            visual_channels=64,
+            latent_dim=latent_dim,
+        )
+
+        # --- 2. Temporal Encoder ---
+        # Sequence predictor remains the baseline unidirectional GRU.
+        fusion_dim = latent_dim * 2  # z_visual + grounded z_text
+        self.temporal_rnn = nn.GRU(fusion_dim, gru_hidden_dim, batch_first=True)
+
+        # --- 3. Attention ---
+        self.attention = Attention(gru_hidden_dim)
+
+        # --- 4. Final Projection ---
+        # cat(h, context) -> gru_hidden_dim * 2
+        self.projection = nn.Sequential(
+            nn.Linear(gru_hidden_dim * 2, latent_dim),
+            nn.ReLU(),
+        )
+
+        # --- 5. Decoders ---
+        # (These predict the *next* item)
+        self.image_decoder = visual_autoencoder.decoder
+        self.text_decoder = text_autoencoder.decoder
+
+        self.fused_to_h0 = nn.Linear(latent_dim, latent_dim)
+        self.fused_to_c0 = nn.Linear(latent_dim, latent_dim)
+        self.last_cross_attention = None
+        self.last_cross_attention_hw = None
+
+    def forward(self, image_seq, text_seq, target_seq):
+        """Run Experiment 1 forward pass and store attention weights for heatmaps."""
+        # image_seq shape: [batch, seq_len, C, H, W]
+        # text_seq shape:  [batch, seq_len, text_len]
+        # target_text_for_teacher_forcing: [batch, text_len] (This is the last text)
+
+        batch_size, seq_len, channels, height, width = image_seq.shape
+
+        # --- 1 & 2: Run Static Encoders over the sequence ---
+        # We can't pass a 5D/4D tensor to the encoders.
+        # We "flatten" the batch and sequence dimensions.
+
+        # Reshape for image_encoder
+        img_flat = image_seq.view(batch_size * seq_len, channels, height, width)
+        # Reshape for text_encoder
+        txt_flat = text_seq.view(batch_size * seq_len, -1)  # -1 infers text_len
+
+        # Run encoders
+        z_v_flat = self.image_encoder(img_flat)  # Shape: [b*s, latent]
+
+        token_embeddings = self.text_encoder.embedding(txt_flat)
+        _, (hidden, _cell) = self.text_encoder.lstm(token_embeddings)
+        text_latent = hidden[-1]
+
+        visual_feature_map = self.image_encoder.content_backbone.encoder_conv(img_flat)
+        grounded_text_flat, cross_attention = self.cross_modal_attention(
+            token_embeddings,
+            visual_feature_map,
+            token_ids=txt_flat,
+        )
+
+        self.last_cross_attention = cross_attention.detach().view(batch_size, seq_len, txt_flat.size(1), -1)
+        self.last_cross_attention_hw = visual_feature_map.shape[-2:]
+
+        # Keep per-frame latents for optional grounding losses
+        z_v_seq = z_v_flat.view(batch_size, seq_len, -1)          # [b, s, latent]
+        z_t_seq = grounded_text_flat.view(batch_size, seq_len, -1)       # [b, s, latent]
+
+        # Experiment 1 fusion: replace baseline text latent with cross-modal grounded text.
+        # Baseline reference: z_fusion_flat = torch.cat((z_v_flat, text_latent), dim=1)
+        z_fusion_flat = torch.cat((z_v_flat, grounded_text_flat), dim=1)  # Shape: [b*s, fusion_dim]
+
+        # "Un-flatten" back into a sequence
+        z_fusion_seq = z_fusion_flat.view(batch_size, seq_len, -1)  # Shape: [b, s, fusion_dim]
+
+        # --- 3. Run Temporal Encoder ---
+        # zseq shape: [b, s, gru_hidden]
+        # h    shape: [1, b, gru_hidden]
+        zseq, h = self.temporal_rnn(z_fusion_seq)
+        h = h.squeeze(0)  # Shape: [b, gru_hidden]
+
+        # --- 4. Attention ---
+        context = self.attention(zseq)  # Shape: [b, gru_hidden]
+
+        # --- 5. Final Prediction Vector (z) ---
+        z = self.projection(torch.cat((h, context), dim=1))  # Shape: [b, joint_latent_dim]
+
+        # --- 6. Decode (Predict pk) ---
+        pred_image_content, pred_image_context = self.image_decoder(z)
+
+        h0 = self.fused_to_h0(z).unsqueeze(0)
+        c0 = self.fused_to_c0(z).unsqueeze(0)
+
+        decoder_input = target_seq[:, :, :-1].squeeze(1)
+
+        # 3. Run the decoder *once* on the entire sequence.
+        # It takes the encoder's final state (hidden, cell)
+        # and the full "teacher" sequence (decoder_input).
+        predicted_text_logits_k, _hidden, _cell = self.text_decoder(decoder_input, h0, c0)
 
         return pred_image_content, pred_image_context, predicted_text_logits_k, h0, c0, z_v_seq, z_t_seq

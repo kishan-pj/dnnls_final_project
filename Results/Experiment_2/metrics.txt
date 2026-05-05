@@ -1,8 +1,8 @@
-Baseline
+Experiment 2
 ========================================
 Metric                    | Value     
 ----------------------------------------
-Final Training Loss       | 4.0854
-BLEU-4 Accuracy           | 0.0130
+Final Training Loss       | 4.0859
+BLEU-4 Accuracy           | 0.0101
 Epochs Completed          | 10
 Predictions Evaluated     | 20

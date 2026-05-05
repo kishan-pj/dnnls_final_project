@@ -617,6 +617,7 @@ class Experiment1SequencePredictor(nn.Module):
 
         self.fused_to_h0 = nn.Linear(latent_dim, latent_dim)
         self.fused_to_c0 = nn.Linear(latent_dim, latent_dim)
+        self.grounding_gate = nn.Parameter(torch.tensor(-2.0))
         self.last_cross_attention = None
         self.last_cross_attention_hw = None
 
@@ -641,15 +642,19 @@ class Experiment1SequencePredictor(nn.Module):
         z_v_flat = self.image_encoder(img_flat)  # Shape: [b*s, latent]
 
         token_embeddings = self.text_encoder.embedding(txt_flat)
-        _, (hidden, _cell) = self.text_encoder.lstm(token_embeddings)
+        lstm_outputs, (hidden, _cell) = self.text_encoder.lstm(token_embeddings)
         text_latent = hidden[-1]
 
         visual_feature_map = self.image_encoder.content_backbone.encoder_conv(img_flat)
-        grounded_text_flat, cross_attention = self.cross_modal_attention(
-            token_embeddings,
+        grounded_visual_flat, cross_attention = self.cross_modal_attention(
+            lstm_outputs,
             visual_feature_map,
             token_ids=txt_flat,
         )
+
+        grounding_strength = torch.sigmoid(self.grounding_gate)
+        grounded_text_flat = text_latent + grounding_strength * grounded_visual_flat
+
 
         self.last_cross_attention = cross_attention.detach().view(batch_size, seq_len, txt_flat.size(1), -1)
         self.last_cross_attention_hw = visual_feature_map.shape[-2:]
@@ -691,3 +696,73 @@ class Experiment1SequencePredictor(nn.Module):
         predicted_text_logits_k, _hidden, _cell = self.text_decoder(decoder_input, h0, c0)
 
         return pred_image_content, pred_image_context, predicted_text_logits_k, h0, c0, z_v_seq, z_t_seq
+
+
+# EXPERIMENT 2 ARCHITECTURE.
+# Simple concatenation + bidirectional GRU.
+class Experiment2SequencePredictor(nn.Module):
+    """
+    Experiment 2 model: simple concatenation + bidirectional GRU.
+    """
+    def __init__(self, visual_autoencoder, text_autoencoder, latent_dim, gru_hidden_dim):
+        super().__init__()
+
+        self.image_encoder = visual_autoencoder.encoder
+        self.text_encoder = text_autoencoder.encoder
+
+        fusion_dim = latent_dim * 2  # z_visual + z_text
+        self.temporal_rnn = nn.GRU(
+            fusion_dim,
+            gru_hidden_dim,
+            batch_first=True,
+            bidirectional=True,
+        )
+
+        self.attention = Attention(gru_hidden_dim * 2)
+
+        self.projection = nn.Sequential(
+            nn.Linear(gru_hidden_dim * 4, latent_dim),
+            nn.ReLU(),
+        )
+
+        self.image_decoder = visual_autoencoder.decoder
+        self.text_decoder = text_autoencoder.decoder
+
+        self.fused_to_h0 = nn.Linear(latent_dim, latent_dim)
+        self.fused_to_c0 = nn.Linear(latent_dim, latent_dim)
+
+    def forward(self, image_seq, text_seq, target_seq):
+        """Run Experiment 2 forward pass using a bidirectional GRU."""
+        batch_size, seq_len, channels, height, width = image_seq.shape
+
+        img_flat = image_seq.view(batch_size * seq_len, channels, height, width)
+        txt_flat = text_seq.view(batch_size * seq_len, -1)
+
+        z_v_flat = self.image_encoder(img_flat)
+        _, hidden, _cell = self.text_encoder(txt_flat)
+        text_latent = hidden[-1]
+
+        z_v_seq = z_v_flat.view(batch_size, seq_len, -1)
+        z_t_seq = text_latent.view(batch_size, seq_len, -1)
+
+        # Keep baseline fusion: simple concatenation.
+        z_fusion_flat = torch.cat((z_v_flat, text_latent), dim=1)
+        z_fusion_seq = z_fusion_flat.view(batch_size, seq_len, -1)
+
+        # Experiment 2 sequence predictor: bidirectional GRU.
+        zseq, h = self.temporal_rnn(z_fusion_seq)
+        h = torch.cat((h[-2], h[-1]), dim=1)
+
+        context = self.attention(zseq)
+        z = self.projection(torch.cat((h, context), dim=1))
+
+        pred_image_content, pred_image_context = self.image_decoder(z)
+
+        h0 = self.fused_to_h0(z).unsqueeze(0)
+        c0 = self.fused_to_c0(z).unsqueeze(0)
+
+        decoder_input = target_seq[:, :, :-1].squeeze(1)
+        predicted_text_logits_k, _hidden, _cell = self.text_decoder(decoder_input, h0, c0)
+
+        return pred_image_content, pred_image_context, predicted_text_logits_k, h0, c0, z_v_seq, z_t_seq
+

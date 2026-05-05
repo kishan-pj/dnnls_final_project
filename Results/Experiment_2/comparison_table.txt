@@ -1,0 +1,8 @@
+Experiment 2 vs Baseline
+========================================================
+Metric                    | Baseline   | Exp 2      | Change    
+--------------------------------------------------------
+Final Training Loss       | 4.0854     | 4.0859     | 0.0005    
+BLEU-4 Accuracy           | 0.0130     | 0.0101     | -0.0029   
+Epochs Completed          | 10.0000    | 10.0000    | 0.0000    
+Predictions Evaluated     | 20.0000    | 20.0000    | 0.0000    

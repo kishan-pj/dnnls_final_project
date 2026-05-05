@@ -1,12 +1,12 @@
-torch
-torchvision
-transformers
-datasets
-numpy
-matplotlib
-pyyaml
-beautifulsoup4
-tqdm
-pillow
-seaborn
-torchmetrics
+torch: 2.5.1
+torchvision: 0.20.1
+transformers: 5.5.4
+datasets: 4.8.4
+numpy: 2.2.6
+matplotlib: 3.10.8
+pyyaml: 6.0.3
+beautifulsoup4: 4.14.3
+tqdm: 4.67.3
+pillow: 12.1.1
+seaborn: 0.13.2
+torchmetrics: 1.9.0

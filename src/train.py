@@ -13,6 +13,7 @@ from .model import (
     DecoderLSTM,
     EncoderLSTM,
     Experiment1SequencePredictor,
+    Experiment2SequencePredictor,
     SequencePredictionDataset,
     SequencePredictor,
     Seq2SeqLSTM,
@@ -105,13 +106,9 @@ def build_sequence_dataloaders(config, tokenizer, train_dataset, test_dataset):
     return train_loader, val_loader, test_loader
 
 
-# ============================================================================
-# Chapter 3: Training Routines
-# ============================================================================
+# Training Routines
 
-# ----------------------------------------------------------------------------
-# 3.1 Initialization and setup
-# ----------------------------------------------------------------------------
+# Initialization and setup
 
 # @title Initializing the NLP models
 """
@@ -154,9 +151,11 @@ def _build_shared_autoencoders(config, tokenizer, device):
     if config["training"]["freeze_text_autoencoder"] and checkpoint_exists:
         for param in text_autoencoder.parameters():
             param.requires_grad = False
+            
+        for param in text_autoencoder.decoder.parameters():
+            param.requires_grad = True
     elif config["training"]["freeze_text_autoencoder"] and not checkpoint_exists:
         print("Text autoencoder checkpoint is missing, so the text module will stay trainable.")
-
     visual_autoencoder = VisualAutoencoder(latent_dim=model_config["latent_dim"]).to(device)
     visual_autoencoder.apply(init_weights)
 
@@ -209,6 +208,22 @@ def build_experiment1_model(config, tokenizer, device):
     _print_sequence_predictor_params(sequence_predictor)
     return sequence_predictor
 
+# EXPERIMENT 2 MODEL BUILDER.
+# Builds simple concatenation + bidirectional GRU.
+def build_experiment2_model(config, tokenizer, device):
+    """Build Experiment 2: simple concatenation + bidirectional GRU."""
+    model_config = config["model"]
+    visual_autoencoder, text_autoencoder = _build_shared_autoencoders(config, tokenizer, device)
+
+    sequence_predictor = Experiment2SequencePredictor(
+        visual_autoencoder,
+        text_autoencoder,
+        latent_dim=model_config["latent_dim"],
+        gru_hidden_dim=model_config["gru_hidden_dim"],
+    ).to(device)
+
+    _print_sequence_predictor_params(sequence_predictor)
+    return sequence_predictor
 
 
 # Training loops
@@ -433,3 +448,16 @@ def train_experiment1(config_path: str, show_validation: bool = False):
         },
     )
 
+# EXPERIMENT 2 TRAINING FUNCTION.
+def train_experiment2(config_path: str, show_validation: bool = False):
+    """Train Experiment 2 and write outputs under results/Experiment_2."""
+    return train_sequence_predictor(
+        config_path,
+        show_validation=show_validation,
+        model_builder=build_experiment2_model,
+        config_overrides={
+            "paths": {
+                "results_dir": "results/Experiment_2",
+            }
+        },
+    )

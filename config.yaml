@@ -45,7 +45,7 @@ cot:
   use_frame_aware_grounding: true
   use_contrastive_roi: true
   use_entity_pooling: true
-  use_cot_text: true
+  use_cot_text: false
   contrastive_tau: 0.07
 
 # Loss weights

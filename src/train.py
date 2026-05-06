@@ -14,6 +14,7 @@ from .model import (
     EncoderLSTM,
     Experiment1SequencePredictor,
     Experiment2SequencePredictor,
+    Experiment3SequencePredictor,
     SequencePredictionDataset,
     SequencePredictor,
     Seq2SeqLSTM,
@@ -225,6 +226,22 @@ def build_experiment2_model(config, tokenizer, device):
     _print_sequence_predictor_params(sequence_predictor)
     return sequence_predictor
 
+# EXPERIMENT 3 MODEL BUILDER.
+# Builds simple concatenation + bidirectional LSTM.
+def build_experiment3_model(config, tokenizer, device):
+    """Build Experiment 3: simple concatenation + bidirectional LSTM."""
+    model_config = config["model"]
+    visual_autoencoder, text_autoencoder = _build_shared_autoencoders(config, tokenizer, device)
+
+    sequence_predictor = Experiment3SequencePredictor(
+        visual_autoencoder,
+        text_autoencoder,
+        latent_dim=model_config["latent_dim"],
+        gru_hidden_dim=model_config["gru_hidden_dim"],
+    ).to(device)
+
+    _print_sequence_predictor_params(sequence_predictor)
+    return sequence_predictor
 
 # Training loops
 
@@ -458,6 +475,20 @@ def train_experiment2(config_path: str, show_validation: bool = False):
         config_overrides={
             "paths": {
                 "results_dir": "results/Experiment_2",
+            }
+        },
+    )
+
+# EXPERIMENT 3 TRAINING FUNCTION.
+def train_experiment3(config_path: str, show_validation: bool = False):
+    """Train Experiment 3 and write outputs under results/Experiment_3."""
+    return train_sequence_predictor(
+        config_path,
+        show_validation=show_validation,
+        model_builder=build_experiment3_model,
+        config_overrides={
+            "paths": {
+                "results_dir": "results/Experiment_3",
             }
         },
     )

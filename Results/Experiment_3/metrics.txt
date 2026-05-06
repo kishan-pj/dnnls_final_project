@@ -1,0 +1,8 @@
+Experiment 3
+========================================
+Metric                    | Value     
+----------------------------------------
+Final Training Loss       | 4.0894
+BLEU-4 Accuracy           | 0.0153
+Epochs Completed          | 10
+Predictions Evaluated     | 20

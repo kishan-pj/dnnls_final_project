@@ -31,7 +31,7 @@ model:
 
 # Training
 training:
-  epochs: 10
+  epochs: 15
   learning_rate: 0.001
   freeze_text_autoencoder: true
   save_every_epoch: false

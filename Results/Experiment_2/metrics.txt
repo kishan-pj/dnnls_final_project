@@ -2,7 +2,7 @@ Experiment 2
 ========================================
 Metric                    | Value     
 ----------------------------------------
-Final Training Loss       | 4.0859
-BLEU-4 Accuracy           | 0.0101
-Epochs Completed          | 10
+Final Training Loss       | 3.9957
+BLEU-4 Accuracy           | 0.0133
+Epochs Completed          | 15
 Predictions Evaluated     | 20

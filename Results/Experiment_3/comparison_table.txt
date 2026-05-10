@@ -2,7 +2,7 @@ Baseline vs BiGRU vs BiLSTM
 ==========================================================================
 Metric                    | Baseline   | BiGRU      | BiLSTM    
 --------------------------------------------------------------------------
-Final Training Loss       | 4.0854     | 4.0859     | 4.0894    
-BLEU-4 Accuracy           | 0.0130     | 0.0101     | 0.0153    
-Epochs Completed          | 10.0000    | 10.0000    | 10.0000   
+Final Training Loss       | 3.9996     | 3.9957     | 3.9957    
+BLEU-4 Accuracy           | 0.0244     | 0.0133     | 0.0000    
+Epochs Completed          | 15.0000    | 15.0000    | 15.0000   
 Predictions Evaluated     | 20.0000    | 20.0000    | 20.0000   

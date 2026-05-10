@@ -6,8 +6,8 @@ In this project there is done improvement in a multimodal grounded sequence pred
 - **[Experiments Notebook](experiment_notebook.ipynb)**
 - **[Baseline Results/Outcomes](Results/baseline/)**
 - **[Experiment 1 Results/Outcomes](Results/Experiment_1)**
-- **[Experiment 2 Results/Outcome](Results/Experiment_2/)**
-- **[Experiment 3 Results/Outcome](Results/Experiment_3/)**
+- **[Experiment 2 Results/Outcomes](Results/Experiment_2/)**
+- **[Experiment 3 Results/Outcomes](Results/Experiment_3/)**
 
 
 # Innovation Summary 
@@ -16,11 +16,10 @@ In this project there is done improvement in a multimodal grounded sequence pred
 I have done changes in the Grounding/fusion part of the baseline architecture. The orginal baseline model have got the simple concatentation where the text latent features and visual latent features are merged together.This procedure blends image and text information, although it doesn't allow the model to clearly understand the relationship within particular words and equivalent visual region. In this experiment Cross-Modal Attention is introduced to enhance the visual-text grounding.The spatial visual feature mapping through the visual encoder function as values and keys, whereas the contextual text token attributes from the LSTM are used as queries.This technique helps the model to concentrate on essential areas of the image, while generating the grounded text visualization. The main aim of this modification is to improve visual-text grounding, lower the referent hallucination as well as to help model to produce text which is better aligned to visual content of the narrative frames.In the outcomes, BLEU-4 score of Cross-Modal Attention is lower than baseline but the final training loss is a slightly higher than the baseline. 
 
 # Experiment-2 
-I have done changes in the Sequence Predictor component of the baseline architecture. The baseline model used unidirectional GRU to analyze the merged visual-text data.This indicates that the model is only reading the story sequence only in forward direction, from the initial input frame to the final input frame. In this experiment2, I replaced the unidirectional GRU with Bidirectional GRU. It allows the model to process the sequence in both backward and forward directions.As a outocme, information can be used from the initial phase till end phase of the input sequence by the model while making the final description of the story. The main aim of this modification is to enhance temporal perception and story coherence before forecasting the next frame and text. 
+I have done changes in the Sequence Predictor component of the baseline architecture. The baseline model used unidirectional GRU to analyze the merged visual-text data.This indicates that the model is only reading the story sequence only in forward direction, from the initial input frame to the final input frame. In this experiment2, I replaced the unidirectional GRU with Bidirectional GRU. It allows the model to process the sequence in both backward and forward directions which read the 4 input frames. Final forward and backward As a outocme, information can be used from the initial phase till end phase of the input sequence by the model while making the final description of the story. The main aim of this modification is to enhance temporal perception and story coherence before forecasting the next frame and text. 
 
 # Experiment- 3 
-I have done this expeiment to do comparision with Experiment 2 - Bidirectional GRU to know whether the Experiment 2 gives the more better result or Experiment 3 gives the better result.In the baseline model unidirectional GRU is used to process the merged visual-text feature through the 4 input frames which process the sequence of the story mostly in the forward direction.In this experiment.
-
+I have done this experiment to compare BiGRU with the BiLSTM and do the testing whether the LSTM cell state gives superior temporal modeling for story sequence.Baseline Model Sequence predictor was modified, unidirectional GRU is used in baseline after combining the visiual and text latent features. I exchanged the unidirectional GRU with bidirectional LSTM. The BiLSTM retrieves the fused visual-text sequence and analyzes the 4 input frames both backward and forward.In this process the last forward and backward hidden sequence are joined, combined together to attention context vector, as well as then anticipated back within the latent space for text and image prediction. 
 
 
 # Key Results 
@@ -28,7 +27,9 @@ I have done this expeiment to do comparision with Experiment 2 - Bidirectional G
 --------------------------------------------------------------------------------------------------------
 | Training Loss  |    3.9996    |   3.9976           |        4.3588           |    3.9957             |
 | BLEU-4         |    0.0244    |   0.0154           |        0.0133           |    0.0000             |     
-|       
+       
+
+![Experiment- 1 ( Cross-Modal Attention Overlay )](results/Experiment_1/attention_overlay.png)
  
 
 # Findings
@@ -42,8 +43,7 @@ Neverthless, BLUE-4 reduced for both experiments. The baseline have got the BLUE
  
 Similarly, Experiment 3- BiLSTM was added to do comparision with  Experiment 2- BiGRU. When the model was trained on 10 epochs Experiment 3 gained a better BLUE-4 score than Experiment 2, while its final training loss was a bit higher. But after training 15 epochs , BiLSTM achieved a same loss to BiGRU, yet its BLUE-4 dropped to 0.0000. It indicates that although extended training increased teacher-forced reduction, it have no impact on published text during BLUE-4 analysis.
 
-Overall, the outcome demonstrate that BLEu-4 does not always get improved by reducing training loss.This is becasue training loss is intended utilizing
-teacher forcing, whereas BLEU-4 analyzes the final initiated sentence as well as involves exact phrase matches. 
+Overall, the outcome demonstrate that BLEu-4 does not always get improved by reducing training loss.This is becasue training loss is intended utilizing teacher forcing, whereas BLEU-4 analyzes the final initiated sentence as well as involves exact phrase matches. 
 
 # How to Reproduce
 

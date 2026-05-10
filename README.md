@@ -3,7 +3,10 @@
 In this project there is done improvement in a multimodal grounded sequence prediction of baseline on the `daniel3303/StoryReasoning` dataset. This model recives four story frames and descriptions for each , then prediction is done for the fifth image and description for it.
 
 # Quick Links
-- **[Experiments Notebook](experiment_notebook.ipynb)**
+- **[Baseline Notebook](experiment_notebooks/baseline.ipynb)**
+- **[Experiment 1](experiment_notebooks/Experiment_1.ipynb)**
+- **[Experiment 2](experiment_notebooks/Experiment_2.ipynb)**
+- **[Experiment 3](experiment_notebooks/Experiment_3.ipynb)**
 - **[Baseline Results/Outcomes](Results/baseline/)**
 - **[Experiment 1 Results/Outcomes](Results/Experiment_1)**
 - **[Experiment 2 Results/Outcomes](Results/Experiment_2/)**
@@ -29,7 +32,7 @@ I have done this experiment to compare BiGRU with the BiLSTM and do the testing 
 | BLEU-4         |    0.0244    |   0.0154           |        0.0133           |    0.0000             |     
        
 
-![Experiment- 1 ( Cross-Modal Attention Overlay )](results/Experiment_1/attention_overlay.png)
+![Experiment- 1 ( Cross-Modal Attention Overlay )](Results/Experiment_1/attention_overlay.png)
  
 
 # Findings

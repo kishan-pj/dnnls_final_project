@@ -3,6 +3,8 @@ Baseline
 Metric                    | Value     
 ----------------------------------------
 Final Training Loss       | 3.9996
-BLEU-4 Accuracy           | 0.0244
+BLEU Score                | 0.2511
+BLEU-4 Score              | 0.0000
+METEOR Score              | 0.1451
 Epochs Completed          | 15
 Predictions Evaluated     | 20

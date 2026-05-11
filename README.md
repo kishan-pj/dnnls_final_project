@@ -47,10 +47,10 @@ A standalone text autoencoder pre-trainng step was introduced as a modified trai
 
 | Metric                 | Baseline | Experiment 1 | BiGRU | BiLSTM     |
 |------------------------|-----------|---------------|--------|---------|
-| Final Training Loss    | 3.9996    | 3.9975        | 3.9957 | 3.9957  |
-| BLEU Score             | 0.2511    | 0.2393        | 0.2627 | 0.2443  |
-| BLEU-4 Score           | 0.0000    | 0.0176        | 0.0133 | 0.0143  |
-| METEOR Score           | 0.1451    | 0.1465        | 0.1485 | 0.1448  |
+| Final Training Loss    | 3.9996    | 3.9976        | 3.9957 | 3.9957  |
+| BLEU Score             | 0.2736    | 0.2618        | 0.2627 | 0.2516  |
+| BLEU-4 Score           | 0.0244    | 0.0212        | 0.0133 | 0.0000  |
+| METEOR Score           | 0.1668    | 0.1603        | 0.1485 | 0.1481  |
 | Epochs Completed       | 15.0000   | 15.0000       | 15.0000 | 15.0000 |
 | Predictions Evaluated  | 20.0000   | 20.0000       | 20.0000 | 20.0000 |
 

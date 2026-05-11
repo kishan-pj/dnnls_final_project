@@ -2,9 +2,9 @@ Experiment 1 vs Baseline
 ====================================================================
 Metric                    | Baseline     | Experiment 1 | Change    
 --------------------------------------------------------------------
-Final Training Loss       | 3.9996       | 3.9975       | -0.0021   
-BLEU Score                | 0.2511       | 0.2704       | 0.0193    
-BLEU-4 Score              | 0.0000       | 0.0215       | 0.0215    
-METEOR Score              | 0.1451       | 0.1547       | 0.0096    
+Final Training Loss       | 3.9996       | 3.9976       | -0.0020   
+BLEU Score                | 0.2736       | 0.2618       | -0.0118   
+BLEU-4 Score              | 0.0244       | 0.0212       | -0.0032   
+METEOR Score              | 0.1668       | 0.1603       | -0.0065   
 Epochs Completed          | 15.0000      | 15.0000      | 0.0000    
 Predictions Evaluated     | 20.0000      | 20.0000      | 0.0000    

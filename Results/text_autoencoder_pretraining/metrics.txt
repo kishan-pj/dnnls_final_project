@@ -1,0 +1,6 @@
+Standalone Text Autoencoder Pretraining
+=============================================
+Metric                    | Value     
+---------------------------------------------
+Final Training Loss       | 3.8395
+Epochs Completed          | 15

@@ -1,7 +1,7 @@
 Epoch [1/15] Loss: 4.4176  (im=0.267, ctx=0.016, txt=3.782, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)
 Epoch [2/15] Loss: 4.3358  (im=0.226, ctx=0.013, txt=4.368, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)
 Epoch [3/15] Loss: 4.2761  (im=0.253, ctx=0.009, txt=3.637, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)
-Epoch [4/15] Loss: 4.2405  (im=0.273, ctx=0.018, txt=3.754, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)
+Epoch [4/15] Loss: 4.2405  (im=0.273, ctx=0.017, txt=3.754, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)
 Epoch [5/15] Loss: 4.2075  (im=0.246, ctx=0.011, txt=4.093, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)
 Epoch [6/15] Loss: 4.1829  (im=0.245, ctx=0.012, txt=4.145, reid=0.000, g_mse=0.004, nce=0.693, entpool=0.000)
 Epoch [7/15] Loss: 4.1609  (im=0.256, ctx=0.009, txt=3.876, reid=0.000, g_mse=0.000, nce=0.000, entpool=0.000)

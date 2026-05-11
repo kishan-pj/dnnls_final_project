@@ -2,9 +2,9 @@ Experiment 1
 ========================================
 Metric                    | Value     
 ----------------------------------------
-Final Training Loss       | 3.9975
-BLEU Score                | 0.2704
-BLEU-4 Score              | 0.0215
-METEOR Score              | 0.1547
+Final Training Loss       | 3.9976
+BLEU Score                | 0.2618
+BLEU-4 Score              | 0.0212
+METEOR Score              | 0.1603
 Epochs Completed          | 15
 Predictions Evaluated     | 20

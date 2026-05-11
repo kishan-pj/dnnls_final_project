@@ -4,9 +4,9 @@ In this project there is done improvement in a multimodal grounded sequence pred
 
 # Quick Links
 - **[Baseline Notebook](experiment_notebooks/baseline.ipynb)**
-- **[Experiment 1](experiment_notebooks/Experiment_1.ipynb)**
-- **[Experiment 2](experiment_notebooks/Experiment_2.ipynb)**
-- **[Experiment 3](experiment_notebooks/Experiment_3.ipynb)**
+- **[Experiment 1 Notebook](experiment_notebooks/Experiment_1.ipynb)**
+- **[Experiment 2 Notebook](experiment_notebooks/Experiment_2.ipynb)**
+- **[Experiment 3 Notebook](experiment_notebooks/Experiment_3.ipynb)**
 - **[Baseline Results/Outcomes](Results/baseline/)**
 - **[Experiment 1 Results/Outcomes](Results/Experiment_1)**
 - **[Experiment 2 Results/Outcomes](Results/Experiment_2/)**
@@ -18,19 +18,41 @@ In this project there is done improvement in a multimodal grounded sequence pred
 # Experiment-1 
 I have done changes in the Grounding/fusion part of the baseline architecture. The orginal baseline model have got the simple concatentation where the text latent features and visual latent features are merged together.This procedure blends image and text information, although it doesn't allow the model to clearly understand the relationship within particular words and equivalent visual region. In this experiment Cross-Modal Attention is introduced to enhance the visual-text grounding.The spatial visual feature mapping through the visual encoder function as values and keys, whereas the contextual text token attributes from the LSTM are used as queries.This technique helps the model to concentrate on essential areas of the image, while generating the grounded text visualization. The main aim of this modification is to improve visual-text grounding, lower the referent hallucination as well as to help model to produce text which is better aligned to visual content of the narrative frames.In the outcomes, BLEU-4 score of Cross-Modal Attention is lower than baseline but the final training loss is a slightly higher than the baseline. 
 
+# Attention Overlay
+
+![Attention Overlay](Results/Experiment_1/attention_overlay.png)
+
+The above figure shows the Cross-Modal Attention explanation for Experiment 1. The left side image represents the selected input frame, the middle image depicts the learned attention intensity for the selected word token, and the right side image overlays the attention map on the original frame. The highlighted red/yellow parts illustrate where the model has higher visual attention when grounding the text representation.
 
 # Experiment-2 
 I have done changes in the Sequence Predictor component of the baseline architecture. The baseline model used unidirectional GRU to analyze the merged visual-text data.This indicates that the model is only reading the story sequence only in forward direction, from the initial input frame to the final input frame. In this experiment2, I replaced the unidirectional GRU with Bidirectional GRU. It allows the model to process the sequence in both backward and forward directions which read the 4 input frames. Final forward and backward As a outocme, information can be used from the initial phase till end phase of the input sequence by the model while making the final description of the story. The main aim of this modification is to enhance temporal perception and story coherence before forecasting the next frame and text. 
+
+# Saliency Map
 
 ![Saliency Map](Results/Experiment_2/saliencymap.png)
 
 In experiment 2 sailency map was used for sequence predictor explainability.The main goal was to figure out which predceding frames and image segments were the most important before estimating the subsequent text and frame.This allows to see if the model used the the whole frame record instead of only the latest frame.While sailency maps may be noisy, they are still useful as a basic explanation aid to analyze the model's implementation of temporal visual data. 
 
 # Experiment- 3 
-I have done this experiment to compare BiGRU with the BiLSTM and do the testing whether the LSTM cell state gives superior temporal modeling for story sequence.Baseline Model Sequence predictor was modified, unidirectional GRU is used in baseline after combining the visiual and text latent features. I exchanged the unidirectional GRU with bidirectional LSTM. The BiLSTM retrieves the fused visual-text sequence and analyzes the 4 input frames both backward and forward.In this process the last forward and backward hidden sequence are joined, combined together to attention context vector, as well as then anticipated back within the latent space for text and image prediction. 
+I have done this experiment to compare BiGRU with the BiLSTM and do the testing whether the LSTM cell state gives superior temporal modeling for story sequence.Baseline Model Sequence predictor was modified, unidirectional GRU is used in baseline after combining the visiual and text latent features. I exchanged the unidirectional GRU with bidirectional LSTM. The BiLSTM retrieves the fused visual-text sequence and analyzes the 4 input frames both backward and forward.In this process the last forward and backward hidden sequence are joined, combined together to attention context vector, as well as then anticipated back within the latent space for text and image prediction.The BiLSTM possesses an extra cellular state and was potentially more robust for long-term sequence storage, while the BiGRU is less complex and has less repetitive gates.In the outcome, BiLSTM achieved almost the identical final training loss as BiGRU, though it did not significantly improve text-generation metrics.BiGRU was selected as the most suitable option for this project since it offers bidirectional chronological context while having less architectural complexity.
+
+# Standalone Text Autoencoder Pretraining
+![Standalone Text Autoencoder Pretraining](Results/Text%20Autoencoder%20Loss.jpg)
+
+A standalone text autoencoder pre-trainng step was introduced as a modified training approach.In this phase, the text encoder and decoder were trained simultaneoulsy to rebuild tale details using Cross-Entropy loss.Standalone text autoencoder loss declined invariably from 4.1834 at epoch 1 to 3.8395 at epoch 15. This verifies that the separate text reconstruction task was learning successfully.This stage was saved independently, it provides evidence for the proposed text pretraining procedure without changing the controlled baseline and experiment results.
 
 # Key Results 
-![Comparision Table](Results/Comparision%20Table.jpg)
+
+# Baseline vs Experiment 1 vs BiGRU vs BiLSTM
+
+| Metric                 | Baseline | Experiment 1 | BiGRU | BiLSTM     |
+|------------------------|-----------|---------------|--------|---------|
+| Final Training Loss    | 3.9996    | 3.9975        | 3.9957 | 3.9957  |
+| BLEU Score             | 0.2511    | 0.2393        | 0.2627 | 0.2443  |
+| BLEU-4 Score           | 0.0000    | 0.0176        | 0.0133 | 0.0143  |
+| METEOR Score           | 0.1451    | 0.1465        | 0.1485 | 0.1448  |
+| Epochs Completed       | 15.0000   | 15.0000       | 15.0000 | 15.0000 |
+| Predictions Evaluated  | 20.0000   | 20.0000       | 20.0000 | 20.0000 |
 
 # Findings
 Initial when all experiments where done compared to the baseline on 10 epochs, experiment 1 used Cross-Modal Attention, while experiment 2 Used a Bidirectional GRU. The inital output showed that experiment 1 and Experiment 2 have got slightly improved BLUE-4 compared to baseline but the loss was not less than the baseline.
@@ -48,5 +70,5 @@ Overall, the outcome demonstrate that BLEU, BLUE-4 or METEOR scores not always g
 # How to Reproduce
 
 1. `pip install - r requirements.txt`
-2. Open `experiment_notebooks` folder
-3. Start with baseline by running all cells (Takes around 40 to 50 minutes for each notebook  on GPU)
+2. Open `experiment_notebook.ipynb`
+3. Run all the cells sequentially (Takes around 3 hours for whole notebook on GPU)

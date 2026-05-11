@@ -1,7 +1,7 @@
 Baseline Prediction Example
 ========================================
 Target Text:
-the scene shifted to an unknown location, where the tension was palpable. the sky was a canvas of uncertainty, a harbinger of the events to come. the air was thick with anticipation, as if the world was holding its breath, waiting for the next move. the unknown location added to the mystery, leaving the characters and the audience alike wondering what was to come next. the silence was deafening, a prelude to the storm that was about to break.
+the scene shifted to another pier, where a man in a navy blue shirt stood, lost in thought. the boats in the water seemed to taunt him with their freedom, a stark contrast to his own sense of entrapment. as a woman in a floral dress and a girl in a yellow dress walked along the pier, he felt a sense of longing. he watched them with a mixture of envy and sadness, knowing that he could never be a part of such a carefree moment. the stone pavement and the water in the background only served to highlight the emptiness in his life.
 
 Baseline Predicted Text:
-the reflection of bear, john and the walls, the man in figure, his gaze fixed a chair, her mind remained unwavering. the door and mike nodded on together? the sky above, its climax on the following unfolding drama. " what awaited the truth was fear, their sense of foreboding, but that she needed to get the events to share beyond something to the events, his presence and whatever cam ' t seem change his minds, and she couldn ' tcy, " " what their way also david, wondering if we how walter?
+back the dimly lit hand. the pressure reached a somber setting, as if the final point between every moment. " we need to find a way to gather his head, amplifying the situation. the wall was a remaining of their treacherous threat. and

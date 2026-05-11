@@ -22,14 +22,12 @@ I have done changes in the Grounding/fusion part of the baseline architecture. T
 # Experiment-2 
 I have done changes in the Sequence Predictor component of the baseline architecture. The baseline model used unidirectional GRU to analyze the merged visual-text data.This indicates that the model is only reading the story sequence only in forward direction, from the initial input frame to the final input frame. In this experiment2, I replaced the unidirectional GRU with Bidirectional GRU. It allows the model to process the sequence in both backward and forward directions which read the 4 input frames. Final forward and backward As a outocme, information can be used from the initial phase till end phase of the input sequence by the model while making the final description of the story. The main aim of this modification is to enhance temporal perception and story coherence before forecasting the next frame and text. 
 
-![Experiment- 1 ( Cross-Modal Attention Overlay )](Results/Experiment_1/attention_overlay.png)
+![Saliency Map](Results/Experiment_2/saliencymap.png)
 
 In experiment 2 sailency map was used for sequence predictor explainability.The main goal was to figure out which predceding frames and image segments were the most important before estimating the subsequent text and frame.This allows to see if the model used the the whole frame record instead of only the latest frame.While sailency maps may be noisy, they are still useful as a basic explanation aid to analyze the model's implementation of temporal visual data. 
 
 # Experiment- 3 
 I have done this experiment to compare BiGRU with the BiLSTM and do the testing whether the LSTM cell state gives superior temporal modeling for story sequence.Baseline Model Sequence predictor was modified, unidirectional GRU is used in baseline after combining the visiual and text latent features. I exchanged the unidirectional GRU with bidirectional LSTM. The BiLSTM retrieves the fused visual-text sequence and analyzes the 4 input frames both backward and forward.In this process the last forward and backward hidden sequence are joined, combined together to attention context vector, as well as then anticipated back within the latent space for text and image prediction. 
-
-![Experiment- 3 ( Cross-Modal Attention Overlay )](Results/Experiment_1/attention_overlay.png)
 
 
 # Key Results 

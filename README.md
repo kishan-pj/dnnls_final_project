@@ -29,9 +29,6 @@ In experiment 2 sailency map was used for sequence predictor explainability.The 
 # Experiment- 3 
 I have done this experiment to compare BiGRU with the BiLSTM and do the testing whether the LSTM cell state gives superior temporal modeling for story sequence.Baseline Model Sequence predictor was modified, unidirectional GRU is used in baseline after combining the visiual and text latent features. I exchanged the unidirectional GRU with bidirectional LSTM. The BiLSTM retrieves the fused visual-text sequence and analyzes the 4 input frames both backward and forward.In this process the last forward and backward hidden sequence are joined, combined together to attention context vector, as well as then anticipated back within the latent space for text and image prediction. 
 
-![Experiment- 3 ( Cross-Modal Attention Overlay )](Results/Experiment_1/attention_overlay.png)
-
-
 # Key Results 
 ![Comparision Table](Results/Comparision%20Table.jpg)
 

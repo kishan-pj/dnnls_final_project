@@ -38,7 +38,7 @@ training:
 
 # Evaluation
 evaluation:
-  bleu_max_batches: 5
+  bleu_max_batches: null
 
 # CoT flags
 cot:

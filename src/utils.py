@@ -325,7 +325,7 @@ def init_weights(m):
 """
 1. `generate`: An inference function for the text decoder.
    - It performs autoregressive generation: predicting one token at a time and feeding it back as input for the next step.
-   - Uses temperature scaling for sampling diversity.
+   - Uses greedy decoding by default for stable metrics, with optional sampling for qualitative examples.
 """
 
 
@@ -337,7 +337,11 @@ def generate(
     sos_token_id: int,
     eos_token_id: int,
     device: torch.device,
-    temperature: float = 0.9,
+    temperature: float = 0.85,
+    sample: bool = True,
+    repetition_penalty: float = 1.25,
+    no_repeat_ngram_size: int = 2,
+    top_k: int = 50,
 ) -> List[int]:
     """
       This function generates a sequence of tokens using the provided decoder.
@@ -361,13 +365,42 @@ def generate(
             prediction, hidden, cell = model(dec_input, hidden, cell)
 
         logits = prediction.squeeze(1)  # Shape (1, vocab_size)
-        temperature = temperature  # <--- Try a value between 0.5 and 1.0
+        for blocked_id in {0, sos_token_id}:
+            if blocked_id is not None and 0 <= blocked_id < logits.size(-1):
+                logits[:, blocked_id] = float("-inf")
 
-        # 1. Divide logits by temperature
-        # 2. Apply softmax to get probabilities
-        # 3. Use multinomial to sample one token based on the probabilities
-        probabilities = torch.softmax(logits / temperature, dim=-1)
-        next_token = torch.multinomial(probabilities, num_samples=1)
+        if repetition_penalty > 1.0 and generated_tokens:
+            for previous_token in set(generated_tokens):
+                if 0 <= previous_token < logits.size(-1):
+                    if logits[:, previous_token].item() > 0:
+                        logits[:, previous_token] /= repetition_penalty
+                    else:
+                        logits[:, previous_token] *= repetition_penalty
+
+        if no_repeat_ngram_size > 1 and len(generated_tokens) >= no_repeat_ngram_size - 1:
+            prefix = tuple(generated_tokens[-(no_repeat_ngram_size - 1):])
+            banned_tokens = set()
+            for start in range(len(generated_tokens) - no_repeat_ngram_size + 1):
+                ngram = generated_tokens[start:start + no_repeat_ngram_size]
+                if tuple(ngram[:-1]) == prefix:
+                    banned_tokens.add(ngram[-1])
+
+            for banned_token in banned_tokens:
+                if 0 <= banned_token < logits.size(-1):
+                    logits[:, banned_token] = float("-inf")
+
+        if sample:
+            sample_logits = logits
+            if top_k > 0 and top_k < sample_logits.size(-1):
+                top_values, top_indices = torch.topk(sample_logits, top_k, dim=-1)
+                filtered_logits = torch.full_like(sample_logits, float("-inf"))
+                filtered_logits.scatter_(1, top_indices, top_values)
+                sample_logits = filtered_logits
+
+            probabilities = torch.softmax(sample_logits / temperature, dim=-1)
+            next_token = torch.multinomial(probabilities, num_samples=1)
+        else:
+            next_token = torch.argmax(logits, dim=-1, keepdim=True)
 
         token_id = next_token.squeeze().item()
 
@@ -376,6 +409,7 @@ def generate(
             break
 
         if token_id == 0 or token_id == sos_token_id:
+            dec_input = next_token
             continue
 
         # Append the predicted token
@@ -459,10 +493,14 @@ def validation(
             model.text_decoder,
             hidden[:, 0, :].unsqueeze(1),
             cell[:, 0, :].unsqueeze(1),
-            max_len=150,
+            max_len=80,
             sos_token_id=tokenizer.cls_token_id,
             eos_token_id=tokenizer.sep_token_id,
             device=device,
+            temperature=0.8,
+            sample=True,
+            repetition_penalty=1.25,
+            no_repeat_ngram_size=2,
         )
 
         wrapped_text = textwrap.fill(tokenizer.decode(generated_tokens), width=40)

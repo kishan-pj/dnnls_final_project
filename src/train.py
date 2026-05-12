@@ -243,6 +243,7 @@ def build_experiment3_model(config, tokenizer, device):
     _print_sequence_predictor_params(sequence_predictor)
     return sequence_predictor
 
+
 # Training loops
 
 # @title Training loop for the sequence predictor
@@ -307,7 +308,10 @@ def train_sequence_predictor(
     criterion_images = nn.L1Loss()
     criterion_ctx = nn.MSELoss()
     criterion_text = nn.CrossEntropyLoss(ignore_index=tokenizer.convert_tokens_to_ids(tokenizer.pad_token))
-    optimizer = torch.optim.Adam(sequence_predictor.parameters(), lr=config["training"]["learning_rate"])
+    optimizer = torch.optim.Adam(
+        (param for param in sequence_predictor.parameters() if param.requires_grad),
+        lr=config["training"]["learning_rate"],
+    )
 
     # Instantiate the model, define loss and optimizer
 
@@ -446,7 +450,7 @@ def train_sequence_predictor(
         sequence_predictor.train()  # Set back to train mode
 
         # Checkpoint saving is not used for the notebook experiments.
-        # The required outputs are saved in results/baseline, results/Experiment_1, results/Experiment_2, results/Experiment_3, and results/Experiment_4.
+        # The required outputs are saved in results/baseline, results/Experiment_1, results/Experiment_2, and results/Experiment_3.
 
     print(f"Finished training. Final loss: {losses[-1]:.4f}")
     return sequence_predictor, tokenizer, val_loader, losses, training_log

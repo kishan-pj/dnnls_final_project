@@ -15,7 +15,7 @@ In this project there is done improvement in a multimodal grounded sequence pred
 
 # Innovation Summary 
 
-# Experiment-1 
+# Experiment-1 (Cross-Modal Attention Grounded Fusion)
 I have done changes in the Grounding/fusion part of the baseline architecture. The orginal baseline model have got the simple concatentation where the text latent features and visual latent features are merged together.This procedure blends image and text information, although it doesn't allow the model to clearly understand the relationship within particular words and equivalent visual region. In this experiment Cross-Modal Attention is introduced to enhance the visual-text grounding.The spatial visual feature mapping through the visual encoder function as values and keys, whereas the contextual text token attributes from the LSTM are used as queries.This technique helps the model to concentrate on essential areas of the image, while generating the grounded text visualization. The main aim of this modification is to improve visual-text grounding, lower the referent hallucination as well as to help model to produce text which is better aligned to visual content of the narrative frames.In the outcomes, BLEU-4 score of Cross-Modal Attention is lower than baseline but the final training loss is a slightly higher than the baseline. 
 
 # Attention Overlay
@@ -80,7 +80,7 @@ attention_weights = torch.softmax(attention_scores, dim=-1)
 attended_visual_tokens = torch.bmm(attention_weights, values)
 ```
 
-# Experiment-2 
+# Experiment-2 (Bidirectional GRU )
 I have done changes in the Sequence Predictor component of the baseline architecture. The baseline model used unidirectional GRU to analyze the merged visual-text data.This indicates that the model is only reading the story sequence only in forward direction, from the initial input frame to the final input frame. In this experiment2, I replaced the unidirectional GRU with Bidirectional GRU. It allows the model to process the sequence in both backward and forward directions which read the 4 input frames. Final forward and backward As a outocme, information can be used from the initial phase till end phase of the input sequence by the model while making the final description of the story. The main aim of this modification is to enhance temporal perception and story coherence before forecasting the next frame and text. 
 
 # Main baseline comparison snippet
@@ -147,8 +147,8 @@ z = self.projection(torch.cat((h, context), dim=1))
 
 In experiment 2 sailency map was used for sequence predictor explainability.The main goal was to figure out which predceding frames and image segments were the most important before estimating the subsequent text and frame.This allows to see if the model used the the whole frame record instead of only the latest frame.While sailency maps may be noisy, they are still useful as a basic explanation aid to analyze the model's implementation of temporal visual data. 
 
-# Experiment- 3 
-I have done this experiment to compare BiGRU with the BiLSTM and do the testing whether the LSTM cell state gives superior temporal modeling for story sequence.Baseline Model Sequence predictor was modified, unidirectional GRU is used in baseline after combining the visiual and text latent features. I exchanged the unidirectional GRU with bidirectional LSTM. The BiLSTM retrieves the fused visual-text sequence and analyzes the 4 input frames both backward and forward.In this process the last forward and backward hidden sequence are joined, combined together to attention context vector, as well as then anticipated back within the latent space for text and image prediction.The BiLSTM possesses an extra cellular state and was potentially more robust for long-term sequence storage, while the BiGRU is less complex and has less repetitive gates.In the outcome, BiLSTM achieved almost the identical final training loss as BiGRU, though it did not significantly improve text-generation metrics.BiGRU was selected as the most suitable option for this project since it offers bidirectional chronological context while having less architectural complexity.
+# Experiment- 3 ( Bidirectional LSTM )
+I have done this experiment to compare BiGRU with the BiLSTM and do the testing whether the LSTM cell state gives superior temporal modeling for story sequence.Baseline Model Sequence predictor was modified, unidirectional GRU is used in baseline after combining the visiual and text latent features. I exchanged the unidirectional GRU with bidirectional LSTM. The BiLSTM retrieves the fused visual-text sequence and analyzes the 4 input frames both backward and forward.In this process the last forward and backward hidden sequence are joined, combined together to attention context vector, as well as then anticipated back within the latent space for text and image prediction.The BiLSTM possesses an extra cellular state and was potentially more robust for long-term sequence storage, while the BiGRU is less complex and has less repetitive gates.In the outcome, BiLSTM achieved almost the identical final training loss as BiGRU.In full validation done as a final results the final training loss of BiGRU and BiLSTM was same, but BiLSTM got slighlty higher on BLUE and METEOR compared with BiGRU. 
 
 # Main baseline comparison snippet
 
@@ -272,7 +272,7 @@ The table below shows 20 validiation prediction was done the baseline seems to b
 | Epochs Completed      | 15.0000  | 15.0000      | 15.0000            | 15.0000             |
 | Predictions Evaluated | 20.0000  | 20.0000      | 20.0000            | 20.0000             |
 
-Overall, the outcome demonstrate that BLEU, BLUE-4 or METEOR scores not always get improved by reducing training loss.This is becasue training loss is intended utilizing teacher forcing. Comparing between BLUE, BLUE-3 and METEOR, BLUE-4 is specifically strict becasue it needs exact 4 word phase matches.On, the other hand METEOR and BLUE gives huge information about semantic similarity and word overlap.
+Overall, the outcome demonstrate that BLEU, BLUE-4 or METEOR scores not always get improved by reducing training loss.This is becasue training loss is intended utilizing teacher forcing. Comparing between BLUE, BLUE-3 and METEOR, BLUE-4 is specifically strict becasue it needs exact 4 word phase matches.On, the other hand METEOR and BLUE gives huge information about semantic similarity and word overlap.Moreover, when full validation is done the reulst indicatest that all three experiments changed and had go better result over the baseline.While Experiment 2 was strongest for BLUE and on other hand experiment 2 has got better in BLEU and METEOR.Although the experiments have got only small difference than final loss of baseline.
 
 # How to Reproduce
 

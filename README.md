@@ -260,7 +260,7 @@ Similarly, experiment 3 got better less BLUE-4 than experiment 2 while its final
 
 To get an depth evaluation of text quality, BLUE and METOR scores were obtained in the final analysis with BLUE considering general word overlap and METEOR focusing recall and semantic parallelism.
 
-The table below shows 20 validiation prediction was done the baseline seems to be the strongest in all metric but later when it was done as null and check as full validation check it got better results as shown in the key results. 
+The table below shows 20 validiation prediction was done the baseline seems to be the strongest in all metric ut later when it was done as null and check as full validation check it got better results as shown in the key results. 
 
 
 | Metric                | Baseline | Experiment 1 | Experiment 2 BiGRU | Experiment 3 BiLSTM |
@@ -281,7 +281,6 @@ Overall, the outcome demonstrate that BLEU, BLUE-4 or METEOR scores not always g
 3. Run the notebooks sequentially start from baseline (Takes around 40/50 minutes for each notebook on GPU)
 
 
-AI Transparency
+# AI Transparency
 
-In this project, I used AI as the permitted use of Artificial Intelligence under SHU AI Transparency (AITS), AITS-2 was used for shaping the project. I took ideas from the chatgpt, Google AI mode and copilot  to do experiments. I did research about the training models and about the training loops. I took the help of chatgpt to get ideas how to illustrate the models outcome and how to use some of the libraries and how to implement them. While this project was based on experiments so i tried some of the ideas given by chatgpt.I have got so many errors while writing codes. While doing the coding i got error in so many places and i took ideas but whole project is done on my own. AI was not used to do any part of project. 
- 
+In this project, I used AI as the permitted use of Artificial Intelligence under SHU AI Transparency (AITS), AITS-2 was used for shaping the project. I took ideas from the chatgpt, Google AI mode and copilot  to do experiments. I did research about the training models and about the training loops. I took the help of chatgpt to get ideas how to illustrate the models outcome and how to use some of the libraries and how to implement them. While this project was based on experiments so i tried some of the ideas given by chatgpt.While doing coding and implemeting the models i was getting the erros, but i took help of Goolge AI , Chatghpt as tutor like asking the ideas to solve problem. My experiments were not being improved and not getting the better results. While all experiments were failing and i took some ideas. Hence, the whole project is done in my own there was no use of AI to do any part of the project.   
